@@ -37,7 +37,7 @@
 #'
 SSmase <- function(retroSummary, quants = c("cpue", "len", "age", "con"), Season = "default",
                    models = "all", endyrvec = "default", indexselect = NULL, MAE.base.adj = 0.1, residuals = FALSE,
-                   verbose = FALSE, indexfleets = 1) {
+                   verbose = FALSE, indexfleets = 1, weights = NULL) {
   hcruns <- retroSummary # added for now
   xmin <- NULL
   subplots <- quants[1]
@@ -249,17 +249,19 @@ SSmase <- function(retroSummary, quants = c("cpue", "len", "age", "con"), Season
 
   # LOOP through fleets
   nfleets <- length(unique(hcruns$indices$Fleet))
-
+  if(is.null(weights)) weights <- rep(1, nfleets)
+  
   MASE <- Residuals <- NULL
   for (fi in 1:nfleets) {
     indexfleets <- unique(hcruns$indices$Fleet)[fi]
     get_mase <- mase(indexfleets)
     MASE <- rbind(MASE, get_mase$MASE)
+    get_mase$Residuals$weights <- weights[fi]
     Residuals <- rbind(Residuals, get_mase$Residuals)
   } # End of Fleet Loop
 
   # Add new joint MASE
-  jstats <- apply(abs(Residuals[c("Pred.Res", "Naive.Res")]), 2, mean)
+  jstats <- apply(abs(Residuals[c("Pred.Res", "Naive.Res")]), 2, weighted.mean, w=Residuals$weights)
   joint <- data.frame(
     Index = "joint", Season = "",
     MASE = jstats[1] / jstats[2], MAE.PR = jstats[1], MAE.base = jstats[2],
